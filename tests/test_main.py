@@ -2,6 +2,7 @@ import json
 from unittest.mock import patch, Mock
 
 import pytest
+import requests
 
 import github_token_updater
 
@@ -18,11 +19,11 @@ def test_get_repos(test_data):
     token = test_data["token"]
     repo_name = test_data["repo_name"]
 
-    with patch("github_token_updater.utils.requests.get") as mock_get:
+    with patch("github_token_updater.utils.requests.Session.get") as mock_get:
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = [{"full_name": repo_name}]
-
-        repos = github_token_updater.utils.get_repos(token)
+        with requests.Session() as session:
+            repos = github_token_updater.utils.get_repos(session, token)
         assert len(repos) == 1
         assert repos[0]["full_name"] == repo_name
 
@@ -32,7 +33,7 @@ def test_check_repo_for_secret(test_data):
     token = test_data["token"]
     secret_name = test_data["secret_name"]
 
-    with patch("github_token_updater.utils.requests.get") as mock_get:
+    with patch("github_token_updater.utils.requests.Session.get") as mock_get:
         mock_get.side_effect = [
             Mock(
                 status_code=200,
@@ -49,11 +50,13 @@ def test_check_repo_for_secret(test_data):
             Mock(status_code=200, text=f"uses {secret_name}"),
         ]
 
-        result = github_token_updater.utils.check_repo_for_secret(
-            repo_name,
-            token,
-            secret_name,
-        )
+        with requests.Session() as session:
+            result = github_token_updater.utils.check_repo_for_secret(
+                session,
+                repo_name,
+                token,
+                secret_name,
+            )
         assert result
 
 
@@ -61,14 +64,19 @@ def test_get_public_key(test_data):
     repo_name = test_data["repo_name"]
     token = test_data["token"]
 
-    with patch("github_token_updater.utils.requests.get") as mock_get:
+    with patch("github_token_updater.utils.requests.Session.get") as mock_get:
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = {
             "key": "public_key",
             "key_id": "key_id",
         }
 
-        key_info = github_token_updater.utils.get_public_key(repo_name, token)
+        with requests.Session() as session:
+            key_info = github_token_updater.utils.get_public_key(
+                session,
+                repo_name,
+                token,
+            )
         assert key_info is not None
         assert "key" in key_info
         assert "key_id" in key_info
@@ -87,16 +95,17 @@ def test_update_secret(test_data):
     secret_name = test_data["secret_name"]
     token = test_data["token"]
 
-    with patch("github_token_updater.utils.requests.put") as mock_put:
+    with patch("github_token_updater.utils.requests.Session.put") as mock_put:
         mock_put.return_value.status_code = 204
-
-        result = github_token_updater.utils.update_secret(
-            repo_name,
-            secret_name,
-            "encrypted_value",
-            "key_id",
-            token,
-        )
+        with requests.Session() as session:
+            result = github_token_updater.utils.update_secret(
+                session,
+                repo_name,
+                secret_name,
+                "encrypted_value",
+                "key_id",
+                token,
+            )
         assert result
 
 

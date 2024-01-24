@@ -24,8 +24,7 @@ pip install .
 ### See Help
 ```bash
 github_token_updater --help
-
-usage: github_token_updater [-h] --token TOKEN --secret_name SECRET_NAME --new_secret_value NEW_SECRET_VALUE
+usage: github_token_updater [-h] --token TOKEN --secret_name SECRET_NAME --new_secret_value NEW_SECRET_VALUE [--orgs]
 
 Update a secret across multiple repositories.
 
@@ -36,6 +35,7 @@ options:
                         Secret name
   --new_secret_value NEW_SECRET_VALUE
                         New secret value
+  --orgs                Include organization repositories
 ```
 
 ## Testing
