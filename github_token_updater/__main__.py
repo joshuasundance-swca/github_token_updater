@@ -46,13 +46,15 @@ def main():
     secret_name = args.secret_name
     new_secret_value = args.new_secret_value
     orgs = args.orgs
+    headers = {"Authorization": f"token {token}"}
 
     with requests.Session() as session:
+        session.headers.update(headers)
         secrets_updated = 0
-        for repo in get_repos(session, token, orgs):
+        for repo in get_repos(session, orgs):
             repo_name = repo["full_name"]
-            if check_repo_for_secret(session, repo_name, token, secret_name):
-                public_key_info = get_public_key(session, repo_name, token)
+            if check_repo_for_secret(session, repo_name, secret_name):
+                public_key_info = get_public_key(session, repo_name)
                 if public_key_info:
                     encrypted_value = encrypt_secret(
                         public_key_info["key"],
@@ -64,7 +66,6 @@ def main():
                         secret_name,
                         encrypted_value,
                         public_key_info["key_id"],
-                        token,
                     ):
                         print(f"Updated secret in {repo_name}")
                         secrets_updated += 1

@@ -12,7 +12,6 @@ DEFAULT_TIMEOUT = 60
 def fetch_paginated_results(
     session: requests.Session,
     url: str,
-    token: str,
     timeout: int,
 ) -> list[dict]:
     """Fetch results from a paginated GitHub API endpoint."""
@@ -20,7 +19,6 @@ def fetch_paginated_results(
     while url:
         response = session.get(
             url,
-            headers={"Authorization": f"token {token}"},
             timeout=timeout,
         )
         if response.status_code == 200:
@@ -43,35 +41,30 @@ def fetch_paginated_results(
 
 def get_user_repos(
     session: requests.Session,
-    token: str,
     timeout: int = DEFAULT_TIMEOUT,
 ) -> list[dict]:
     """Fetch all repositories owned by the user."""
     return fetch_paginated_results(
         session,
         "https://api.github.com/user/repos",
-        token,
         timeout,
     )
 
 
 def get_user_orgs(
     session: requests.Session,
-    token: str,
     timeout: int = DEFAULT_TIMEOUT,
 ) -> list[dict]:
     """Fetch all organizations the user is part of."""
     return fetch_paginated_results(
         session,
         "https://api.github.com/user/orgs",
-        token,
         timeout,
     )
 
 
 def get_org_repos(
     session: requests.Session,
-    token: str,
     org: dict,
     timeout: int = DEFAULT_TIMEOUT,
 ) -> list[dict]:
@@ -80,46 +73,41 @@ def get_org_repos(
     return fetch_paginated_results(
         session,
         f"https://api.github.com/orgs/{org_name}/repos",
-        token,
         timeout,
     )
 
 
 def get_repos(
     session: requests.Session,
-    token: str,
     orgs: bool = False,
     timeout: int = DEFAULT_TIMEOUT,
 ) -> list[dict]:
     """Fetch all repositories (user and organizations) accessible with the given token."""
-    repos = get_user_repos(session, token, timeout)
+    repos = get_user_repos(session, timeout)
     if orgs:
-        _orgs = get_user_orgs(session, token, timeout)
+        _orgs = get_user_orgs(session, timeout)
         for org in _orgs:
-            repos.extend(get_org_repos(session, token, org, timeout))
+            repos.extend(get_org_repos(session, org, timeout))
     return repos
 
 
 def check_repo_for_secret(
     session: requests.Session,
     repo_name: str,
-    token: str,
     secret_key: str,
     timeout: int = DEFAULT_TIMEOUT,
 ) -> bool:
     """Check if the given repository uses the specified secret in its workflows."""
-    headers = {"Authorization": f"token {token}"}
     workflows_url = (
         f"https://api.github.com/repos/{repo_name}/contents/.github/workflows"
     )
-    response = session.get(workflows_url, headers=headers, timeout=timeout)
+    response = session.get(workflows_url, timeout=timeout)
     yaml_pattern = re.compile(r".*\.ya?ml", re.IGNORECASE)
     if response.status_code == 200:
         for file in response.json():
             if file["type"] == "file" and yaml_pattern.match(file["name"]):
                 file_content = session.get(
                     file["download_url"],
-                    headers=headers,
                     timeout=timeout,
                 ).text
                 if secret_key in file_content:
@@ -130,13 +118,11 @@ def check_repo_for_secret(
 def get_public_key(
     session: requests.Session,
     repo: str,
-    token: str,
     timeout: int = DEFAULT_TIMEOUT,
 ) -> Optional[dict]:
     """Retrieve the public key for a repository."""
     url = f"https://api.github.com/repos/{repo}/actions/secrets/public-key"
-    headers = {"Authorization": f"token {token}"}
-    response = session.get(url, headers=headers, timeout=timeout)
+    response = session.get(url, timeout=timeout)
     return response.json() if response.status_code == 200 else None
 
 
@@ -154,12 +140,10 @@ def update_secret(
     secret_name: str,
     encrypted_value: str,
     public_key_id: str,
-    token: str,
     timeout: int = DEFAULT_TIMEOUT,
 ) -> bool:
     """Update the secret in the specified repository."""
     url = f"https://api.github.com/repos/{repo}/actions/secrets/{secret_name}"
-    headers = {"Authorization": f"token {token}"}
     data = {"encrypted_value": encrypted_value, "key_id": public_key_id}
-    response = session.put(url, headers=headers, json=data, timeout=timeout)
+    response = session.put(url, json=data, timeout=timeout)
     return response.status_code in [201, 204]
